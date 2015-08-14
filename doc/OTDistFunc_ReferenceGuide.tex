@@ -1,0 +1,351 @@
+% 
+% Permission is granted to copy, distribute and/or modify this document
+% under the terms of the GNU Free Documentation License, Version 1.2
+% or any later version published by the Free Software Foundation;
+% with no Invariant Sections, no Front-Cover Texts, and no Back-Cover
+% Texts.  A copy of the license is included in the section entitled "GNU
+% Free Documentation License".
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+\section{Reference Guide}
+
+The OTDistFunc module provides means to distribute computations across several cores or remote nodes.
+
+Comparison of every wrappers available on \OT\ are given in the developers documentation (section Wrapper Development - Performance consideration).
+The benchmark shows that the DistributedPythonFunction is the best choice if you have to wrap external program that last one second or more. It combines the ease of use of Python with the ability to deploy compute on a cluster of computers.
+
+
+% \subsection{Method1}
+% 
+% \MathematicalDescription{
+% \underline{\textbf{Goal}}\\
+% Goal1
+% 
+% \underline{\textbf{Principles}}\\
+% Principle1
+% }
+% {
+% % Autres notations et appellations
+% }
+% 
+% \Methodology{
+% Step1
+% }
+% {
+% 
+% \vspace{10mm}
+% Reference1
+% }
+
+
+
+\subsection{DistributedPythonFunction}
+
+The distributed Python function works the same way as the PythonFunction except it executes \_exec function in parallel. Parallelization is enabled by default on local computer and can be done on remote computers. 
+
+Here is a global view of the DistributedPythonFunction interface:
+\begin{lstlisting}
+class DistributedPythonFunction(ot.OpenTURNSPythonFunction):
+    def __init__(self,
+                 n_input,
+                 n_output,
+                 wrapper_file,
+                 hosts=[],
+                 scheduler=None,
+                 files_to_send=[], 
+                 cleanup='ok', 
+                 n_cores=0,
+                 tmpdir=None,
+                 remote_tmpdir=None,
+                 user_data=None,
+                 ):
+\end{lstlisting}
+
+%For now, analytical function are not launched in parallel.
+
+
+%\subsubsection{Analytical function}
+%The DistributedPythonFunction can work like the PythonFunction.
+%
+%\begin{lstlisting}
+%import openturns as ot
+%import otdistfunc as df
+%model = df.DistributedPythonFunction(2, 1, 
+%                                     wrapper_file='program_wrapper.py', 
+%                                     analytical=True)
+%#...
+%\end{lstlisting}
+%
+%\begin{itemize}
+%  \item[line 2] Set input and output point dimensions.
+%  \item[line 3] The \verb|_exec| function must be defined in an external file that must be passed in \verb|wrapper_file| parameters. This is the only drawback against the PythonFunction. But this will be a necessity in order to be able to launch compute on remote computers.
+%  \item[line 4] Turn on optimization when wrapper consist only of an analytical formula (this will disable the creation of a workdir per point).
+%\end{itemize}
+%
+%The program\_wrapper.py file has only to implement an \verb|_exec| function :
+%\begin{lstlisting}
+%def _exec( X ): 
+%    return X[0] * X[1]   
+%\end{lstlisting}
+%
+
+\subsubsection{Local compute}
+
+With the DistributedPythonFunction, \_exec functions are launched by default in parallel by the number of core available on the machine.
+Each point are computed (\verb|_exec(X)|) in their own working directory in order to avoid point's compute interference (e.g. when each \verb|_exec| function creates input file with same name).
+
+
+
+\paragraph{Simple multithreaded wrapper} can be written quickly:
+
+\begin{lstlisting}
+import openturns as ot
+model = ot.DistributedPythonFunction(2, 1,
+                                     wrapper_file='program_wrapper.py')
+#...
+\end{lstlisting}
+
+
+\begin{itemize}
+  \item[line 2] Set input and output point dimensions.
+  \item[line 3] The \verb|_exec| function must be defined in an external file that must be passed in \verb|wrapper_file| parameters. This is the only drawback against the PythonFunction, but this will be a necessity in order to be able to launch it on remote computers. The output point can be a Python list, an \OT\ NumericalPoint or a Numpy array. 
+\end{itemize}
+
+The wrapper file can use CouplingTools module:
+
+\begin{lstlisting}
+#! /usr/bin/env python
+# -*- coding: utf8 -*-
+
+"""
+define how to compute a point : 
+make the glue to give to the actual program the input variables and take from 
+the results the output variables
+"""
+
+import os
+import coupling_tools
+
+external_program = 'python program.py'
+
+def _exec( X ): 
+    """ 
+    simple example of wrapper where compute is made in an external program
+    """
+
+    # write input point
+    in_file = 'input.py'
+    coupling_tools.replace('input_template', in_file, ['@E', '@F'], X)
+
+    # work, work, work
+    coupling_tools.execute(external_program + " " + in_file)
+
+    Y = coupling_tools.get('output.py', tokens=['Z='])
+
+    return Y
+
+
+# super simple example of wrapper where compute will be made inside it:
+# def _exec( X ): 
+#     Y = X[0] * X[1]
+#     return [Y]
+\end{lstlisting}
+
+\paragraph{Workdir explanation}
+
+Each time the DistributedPythonFunction have to compute a sample, it will create a uniq directory name \verb|/temporary-dir/wrapper-name_date_UUID|. 
+For each point computed, a uniq temporary directory is created for that point. The directory has the name of the id of the point in the sample. Using the previous example, if the sample to resolve is of size 3, the workdir will look like this:
+
+\begin{lstlisting}
+/tmp/program_wrapper_2012-10-23_11-00-20_OURB0U/
+|-- 0
+|   |-- ...
+|-- 1
+|   |-- ...
+|-- 2
+    |-- ...
+\end{lstlisting}
+
+Workdir cleanup can be tune using the \verb|cleanup| parameters. It is set by default to \verb|'ok'|, which means workdir is cleanuped if the point is resolved without any error. \verb|'no'| means never cleanup, \verb|'all'| means always cleanup.
+
+The temporary directory base can be tune using \verb|tmpdir| parameter.
+
+User files can be copied to each workdir using \verb|files_to_send| parameter.
+
+
+\paragraph{Parallelization control} can be done using \verb|n_cores| parameter. It set the number of \verb|_exec| function launched in parallel. 0 means: set to the number of cores of the local machine.
+
+\paragraph{User's data} can be send to the wrapper. When the \verb|user_data| argument is set, each python wrapper will be able to access a globally defined \verb|user_data| variable containing the user's data. Each wrapper will receive the same data. The \verb|user_data| can be made of any simple python type (list, tuple, string, list of tuple...). 
+
+\paragraph{Error management} are done by raising exception and putting its content to \OT\ warning or error logs.
+More debug info can be get using \OT\ logs info and debug:
+\begin{lstlisting}
+ot.Log.Show( ot.Log.Flags() | ot.Log.DBG )
+ot.Log.Show( ot.Log.Flags() | ot.Log.INFO )
+\end{lstlisting}
+
+To debug (e.g. with Python pdb) points that failed, point compute can be relaunched individually using the \verb|wrapper_launcher.py| script:
+\begin{lstlisting}
+# relaunch first point of the sample
+cd /tmp/program_wrapper_2012-10-23_11-00-20_OURB0U/0/
+python wrapper_launcher.py
+\end{lstlisting}
+
+Input point and ouput point can be get manually afterwards using \verb|wrapper_data| module:
+\begin{lstlisting}
+/tmp/program_wrapper_2012-10-23_11-00-20_OURB0U/0 $ python 
+Python 2.7.3 (default, Aug  1 2012, 05:14:39) 
+[GCC 4.6.3] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import wrapper_data as wd
+>>> in_point = wd.get_data('core_in.pkl')
+A core_in point has been found.
+>>> print in_point
+[1.0, 2.0]
+>>> out_point = wd.get_data('core_out.pkl')
+A core_out point has been found.
+>>> print out_point
+[2.0]
+\end{lstlisting}
+
+
+For now, error management policy is left to the user. If an error occur in a sample, \OT\ will throw the whole sample, but the user can prevent this by catching inside the Python wrapper any error and put its default error value:
+\begin{lstlisting}
+import coupling_tools as ct
+def _exec( X ): 
+    try:
+        in_file = 'input.py'
+        ct.replace('input_template.py', in_file, ['@E', '@F'], X)
+        ct.execute('python external_program.py ' + in_file)
+        return ct.get('output.py', tokens=['Z='])
+    except:
+        return [float('NaN')]
+\end{lstlisting}
+
+
+\subsubsection{Remote compute}
+
+The DistributedPythonFunction can distribute computing among several hosts. It has been tested on a maximum of 40 octo-cores nodes.
+The remote host can be a Windows operating system if Cygwin SSH server is installed. The remote hosts list can be a mix of Windows and Unix like operating system. For now, compute cannot be remotely launched from a Windows OS.
+
+\paragraph{Requirements} Distribute computing requires on each remote hosts:
+\begin{itemize}
+\item A working remote SSH server with the following system command available: rm, mkdir, tail, head, cat (works with Cygwin SSH server).
+\item A password-less SSH login configured. Quick configuration example :
+\begin{lstlisting}
+# create a passphrase on the local machine
+ssh-keygen # default answer are usually ok
+# copy the key to each remote machine
+ssh-copy-id login@machine
+# load the passphrase to the local ssh-agent
+ssh-add
+\end{lstlisting}
+\item Python 2.x (tested on Python version >= 2.6). 
+\item It does NOT needs OpenTURNS.
+\end{itemize}
+On local machine, it needs too an installed SSH client.
+
+To test these requirements, use the following sh command (replace \verb|node-1 node-2| by your remote hosts):
+\begin{lstlisting}
+$ for N in node-1 node-2; do echo "SSH test on host $N"; ssh $N python --version; done
+SSH test on host node-1
+Python 2.7.3
+SSH test on host node-2
+Python 2.7.3
+\end{lstlisting}
+
+\paragraph{Simple distributed wrapper}
+
+The parameters are actually similar to the multithreaded mode except it needs the \verb|hosts| or \verb|scheduler| parameter set:
+
+\begin{lstlisting}
+import openturns as ot
+import otdistfunc as df
+model = df.DistributedPythonFunction(2, 1, 
+                                     wrapper_file='program_wrapper.py',
+                                     hosts=['node-1', 'node-2'])
+#...
+\end{lstlisting}
+
+By default, \verb|_exec| functions are launched in parallel on each given remote machine. The \verb|_exec| functions are launched too by default in parallel on each core available of each remote machine.
+The file \verb|program_wrapper.py| is automatically copied to the remote hosts.
+
+Each point are computed too in their own working directory.
+For each sample computing, workdir basename are the same on each hosts. Example with a sample of 5 points:
+
+Workdir of node-1:
+\begin{lstlisting}
+/tmp/program_wrapper_2012-10-23_11-00-20_OURB0U/
+|-- 0
+|   |-- program_wrapper.py
+|   |-- ...
+|-- 1
+|   |-- program_wrapper.py
+|   |-- ...
+|-- 2
+    |-- ...
+\end{lstlisting}
+
+Workdir of node-2:
+\begin{lstlisting}
+/tmp/program_wrapper_2012-10-23_11-00-20_OURB0U/
+|-- 3
+|   |-- program_wrapper.py
+|   |-- ...
+|-- 5
+    |-- ...
+\end{lstlisting}
+
+
+
+\paragraph{Fine tuning} Here is an example where compute is launched on a cluster: 
+
+\begin{lstlisting}
+import openturns as ot
+import otdistfunc as df
+model = df.DistributedPythonFunction(2, 1, 
+                                     wrapper_file='program_wrapper.py',
+                                     scheduler='PBS',
+                                     n_cores='2',
+                                     cleanup='no',
+                                     files_to_send=['program.py'],
+                                     remote_tmpdir='/scratch')
+#...
+\end{lstlisting}
+
+Some explanations of the code :
+\begin{itemize}
+  \item[line 4] The remote hosts lists will be get from a PBS scheduler. For now, only PBS scheduler is implemented. The submission must have been already done. Example of a shell command using launching this script:
+% \begin{lstlisting}$ qsub -l select=10:ncpus=8 ./ot_script.py\end{lstlisting}
+
+  \item[line 5] The number of \verb|_exec| functions launched in parallel on each hosts is set manually to 2.
+  \item[line 6] Working directory will not be removed at the end of computing.
+  \item[line 7] A user file is copied from the local machine to each remote workdirs.
+  \item[line 8] \verb|remote_tmpdir| permit to set the temporary directory of the remote hosts (in order to create workdirs). 
+\end{itemize}
+
+\paragraph{Tune points distribution} By default, the amount of points to compute is distributed statically to each host (e.g. 8 points to compute on 3 hosts : host-1 and host-2 get 3 points, host-3 gets 2 points). 
+
+It is possible to change this distribution with the \verb|hosts| parameter. The weight is set by appending a semicolon and a weight after the hostname. e.g. \verb|['host-1', 'host-2:2', 'host-3:4']|: host-2 will compute twice more points than host-1 (weight of 1 by default) and host-3 will compute 2 times more points than host-2. (e.g. 7 points to compute -> host-1 gets 1 point, host-2 gets 2 points, host-3 gets 4 points). 
+
+\paragraph{Miscellaneous} When \verb|CTRC-C| is pressed (SIGINT) in the local Python process, the terminate signal is first forward to remote hosts so as to stop useless remote computing.
+
+\subsubsection{Reference}
+
+\paragraph{Documentation}
+Most up to date DistributedPythonFunction documentation is available through docstring in Python console:
+
+\begin{lstlisting}
+import openturns as ot
+import otdistfunc as df
+help(df.distributed_wrapper.DistributedPythonFunction)
+\end{lstlisting}
+
+Or in IPython console:
+\begin{lstlisting}
+df.distributed_wrapper.DistributedPythonFunction?
+\end{lstlisting}
+

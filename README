@@ -1,0 +1,11 @@
+** Installation **
+
+For the quick readers:
+python ./setup.py build
+python ./setup.py install --user
+python ./setup.py test
+
+Don't skip the check stages. They assure you the software you've just compiled behaves correctly.
+
+Enjoy !
+The OpenTURNS' development team.

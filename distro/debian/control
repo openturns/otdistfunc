@@ -1,0 +1,14 @@
+Source: otdistfunc
+Section: python
+Priority: optional
+Maintainer: Mathieu Souchaud <souchaud@phimeca.com>
+Uploaders: Julien Schueller <schueller@phimeca.com>
+Build-Depends: debhelper (>= 8), quilt, cmake, libopenturns-dev, python-openturns, python3-openturns, python, python3, texlive, texlive-latex-extra, poppler-utils
+Standards-Version: 3.9.3
+Homepage: http://www.openturns.org/
+
+Package: python-otdistfunc
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-openturns, python3-openturns, python
+Description: Distributed wrapper for OpenTURNS
+ Allows one to distribute a function among several cores and computers.
