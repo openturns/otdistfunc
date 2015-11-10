@@ -59,14 +59,14 @@ if ( BUILD_PYTHON )
 endif ()
 
 
-# WARNING: This is where variables without OPENTURNS_ prefix are defined !
-foreach ( _var PYTHON_MODULE_PATH LIBRARY_PATH INCLUDE_PATH )
-  if ( NOT IS_ABSOLUTE OTDISTFUNC_${_var} )
-    set ( OTDISTFUNC_${_var} ${CMAKE_INSTALL_PREFIX}/${OTDISTFUNC_${_var}} )
+# WARNING: This is where variables without OTDISTFUNC_ prefix are defined !
+foreach (_var PYTHON_MODULE_PATH)
+  file (TO_NATIVE_PATH "${OTDISTFUNC_${_var}}" NATIVE_OTDISTFUNC_${_var})
+  if (NOT IS_ABSOLUTE ${NATIVE_OTDISTFUNC_${_var}})
+    file (TO_NATIVE_PATH ${CMAKE_INSTALL_PREFIX}/${OTDISTFUNC_${_var}} NATIVE_OTDISTFUNC_${_var})
   endif ()
-  set ( ${_var} ${OTDISTFUNC_${_var}} )
-endforeach ( _var )
-
+  string (REPLACE "\\" "\\\\" ${_var} ${NATIVE_OTDISTFUNC_${_var}})
+endforeach ()
 
 # The tests can't be run if this function is absent
 enable_testing ()
