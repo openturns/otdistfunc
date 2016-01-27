@@ -11,6 +11,7 @@ URL:            http://www.openturns.org/
 Source0:        http://downloads.sourceforge.net/openturns-modules/otdistfunc/otdistfunc-%{version}.tar.bz2
 BuildArch:      noarch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root
+BuildArch:      noarch
 BuildRequires:  openturns-devel
 BuildRequires:  python-openturns
 BuildRequires:  gcc-c++, cmake
