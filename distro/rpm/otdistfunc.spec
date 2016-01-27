@@ -2,7 +2,7 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 
 Name:           otdistfunc
-Version:        0.4h
+Version:        0.4i
 Release:        0%{?dist}
 Summary:        Template OpenTURNS module
 Group:          System Environment/Libraries
